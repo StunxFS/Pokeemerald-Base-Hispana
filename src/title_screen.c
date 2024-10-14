@@ -559,7 +559,6 @@ static void StartPokemonLogoShine(u8 mode)
 
 static void VBlankCB(void)
 {
-    ScanlineEffect_InitHBlankDmaTransfer();
     LoadOam();
     ProcessSpriteCopyRequests();
     TransferPlttBuffer();
@@ -596,13 +595,12 @@ void CB2_InitTitleScreen(void)
     case 1:
         // bg2
         LZ77UnCompVram(gTitleScreenPokemonLogoGfx, (void *)(BG_CHAR_ADDR(0)));
-        LZ77UnCompVram(gTitleScreenPokemonLogoTilemap, (void *)(BG_SCREEN_ADDR(9)));
-        LoadPalette(gTitleScreenBgPalettes, BG_PLTT_ID(0), 15 * PLTT_SIZE_4BPP);
+        LZ77UnCompVram(gTitleScreenPokemonLogoTilemap, (void *)(VRAM + 0xA000));
+        LoadPalette(gTitleScreenBgPalettes, BG_PLTT_ID(0), 15 * PLTT_SIZE_8BPP);
         // bg3
-        LZ77UnCompVram(sTitleScreenRayquazaGfx, (void *)(BG_CHAR_ADDR(2)));
-        LZ77UnCompVram(sTitleScreenRayquazaTilemap, (void *)(BG_SCREEN_ADDR(26)));
+        //LZ77UnCompVram(sTitleScreenRayquazaGfx, (void *)(BG_CHAR_ADDR(2)));
+        //LZ77UnCompVram(sTitleScreenRayquazaTilemap, (void *)(BG_SCREEN_ADDR(26)));
         // bg1
-        ScanlineEffect_Stop();
         ResetTasks();
         ResetSpriteData();
         FreeAllSpritePalettes();
@@ -612,6 +610,7 @@ void CB2_InitTitleScreen(void)
         LoadCompressedSpriteSheet(&sPokemonLogoShineSpriteSheet[0]);
         LoadPalette(gTitleScreenEmeraldVersionPal, OBJ_PLTT_ID(0), PLTT_SIZE_4BPP);
         LoadSpritePalette(&sSpritePalette_PressStart[0]);
+        //
         gMain.state = 2;
         break;
     case 2:
@@ -647,9 +646,9 @@ void CB2_InitTitleScreen(void)
         SetGpuReg(REG_OFFSET_BLDY, 12);
         SetGpuReg(REG_OFFSET_BG0CNT, BGCNT_PRIORITY(3) | BGCNT_CHARBASE(2) | BGCNT_SCREENBASE(26) | BGCNT_16COLOR | BGCNT_TXT256x256);
         SetGpuReg(REG_OFFSET_BG1CNT, BGCNT_PRIORITY(2) | BGCNT_CHARBASE(3) | BGCNT_SCREENBASE(27) | BGCNT_16COLOR | BGCNT_TXT256x256);
-        SetGpuReg(REG_OFFSET_BG2CNT, BGCNT_PRIORITY(1) | BGCNT_CHARBASE(0) | BGCNT_SCREENBASE(9) | BGCNT_256COLOR | BGCNT_AFF256x256);
+        SetGpuReg(REG_OFFSET_BG2CNT, BGCNT_PRIORITY(1) | BGCNT_CHARBASE(0) | BGCNT_SCREENBASE(20) | BGCNT_256COLOR | BGCNT_AFF256x256);
         EnableInterrupts(INTR_FLAG_VBLANK);
-        SetGpuReg(REG_OFFSET_DISPCNT, DISPCNT_MODE_1
+        SetGpuReg(REG_OFFSET_DISPCNT, DISPCNT_MODE_0
                                     | DISPCNT_OBJ_1D_MAP
                                     | DISPCNT_BG2_ON
                                     | DISPCNT_OBJ_ON
@@ -661,8 +660,6 @@ void CB2_InitTitleScreen(void)
     case 5:
         if (!UpdatePaletteFade())
         {
-            StartPokemonLogoShine(SHINE_MODE_SINGLE_NO_BG_COLOR);
-            ScanlineEffect_InitWave(0, DISPLAY_HEIGHT, 4, 4, 0, SCANLINE_EFFECT_REG_BG1HOFS, TRUE);
             SetMainCallback2(MainCB2);
         }
         break;
@@ -689,7 +686,7 @@ static void Task_TitleScreenPhase1(u8 taskId)
         gTasks[taskId].tCounter = 0;
     }
 
-    SetGpuReg(REG_OFFSET_DISPCNT, DISPCNT_MODE_1 | DISPCNT_OBJ_1D_MAP | DISPCNT_BG2_ON | DISPCNT_OBJ_ON);
+    SetGpuReg(REG_OFFSET_DISPCNT, DISPCNT_MODE_0 | DISPCNT_OBJ_1D_MAP | DISPCNT_BG2_ON | DISPCNT_OBJ_ON);
     SetGpuReg(REG_OFFSET_WININ, 0);
     SetGpuReg(REG_OFFSET_WINOUT, 0);
     SetGpuReg(REG_OFFSET_BLDCNT, BLDCNT_TGT1_OBJ | BLDCNT_EFFECT_BLEND | BLDCNT_TGT2_ALL);
@@ -734,7 +731,7 @@ static void Task_TitleScreenPhase2(u8 taskId)
         SetGpuReg(REG_OFFSET_BLDCNT, BLDCNT_TGT1_BG1 | BLDCNT_EFFECT_BLEND | BLDCNT_TGT2_BG0 | BLDCNT_TGT2_BD);
         SetGpuReg(REG_OFFSET_BLDALPHA, BLDALPHA_BLEND(6, 15));
         SetGpuReg(REG_OFFSET_BLDY, 0);
-        SetGpuReg(REG_OFFSET_DISPCNT, DISPCNT_MODE_1
+        SetGpuReg(REG_OFFSET_DISPCNT, DISPCNT_MODE_0
                                     | DISPCNT_OBJ_1D_MAP
                                     | DISPCNT_BG0_ON
                                     | DISPCNT_BG1_ON
