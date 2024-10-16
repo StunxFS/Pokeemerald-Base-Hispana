@@ -55,7 +55,6 @@ static void UpdateLegendaryMarkingColor(u8);
 static void SpriteCB_VersionBannerLeft(struct Sprite *sprite);
 static void SpriteCB_VersionBannerRight(struct Sprite *sprite);
 static void SpriteCB_PressStartCopyrightBanner(struct Sprite *sprite);
-static void SpriteCB_PokemonLogoShine(struct Sprite *sprite);
 
 // const rom data
 static const u16 sUnusedUnknownPal[] = INCBIN_U16("graphics/title_screen/unused.gbapal");
@@ -310,55 +309,6 @@ static const struct SpritePalette sSpritePalette_PressStart[] =
     {},
 };
 
-static const struct OamData sPokemonLogoShineOamData =
-{
-    .y = DISPLAY_HEIGHT,
-    .affineMode = ST_OAM_AFFINE_OFF,
-    .objMode = ST_OAM_OBJ_NORMAL,
-    .mosaic = FALSE,
-    .bpp = ST_OAM_4BPP,
-    .shape = SPRITE_SHAPE(64x64),
-    .x = 0,
-    .matrixNum = 0,
-    .size = SPRITE_SIZE(64x64),
-    .tileNum = 0,
-    .priority = 0,
-    .paletteNum = 0,
-    .affineParam = 0,
-};
-
-static const union AnimCmd sPokemonLogoShineAnimSequence[] =
-{
-    ANIMCMD_FRAME(0, 4),
-    ANIMCMD_END,
-};
-
-static const union AnimCmd *const sPokemonLogoShineAnimTable[] =
-{
-    sPokemonLogoShineAnimSequence,
-};
-
-static const struct SpriteTemplate sPokemonLogoShineSpriteTemplate =
-{
-    .tileTag = TAG_LOGO_SHINE,
-    .paletteTag = TAG_PRESS_START_COPYRIGHT,
-    .oam = &sPokemonLogoShineOamData,
-    .anims = sPokemonLogoShineAnimTable,
-    .images = NULL,
-    .affineAnims = gDummySpriteAffineAnimTable,
-    .callback = SpriteCB_PokemonLogoShine,
-};
-
-static const struct CompressedSpriteSheet sPokemonLogoShineSpriteSheet[] =
-{
-    {
-        .data = sTitleScreenLogoShineGfx,
-        .size = 0x800,
-        .tag = TAG_LOGO_SHINE
-    },
-    {},
-};
-
 // Task data for the main title screen tasks (Task_TitleScreenPhase#)
 #define tCounter    data[0]
 #define tSkipToNext data[1]
@@ -451,112 +401,6 @@ static void CreateCopyrightBanner(s16 x, s16 y)
 #undef sAnimate
 #undef sTimer
 
-// Defines for SpriteCB_PokemonLogoShine
-enum {
-    SHINE_MODE_SINGLE_NO_BG_COLOR,
-    SHINE_MODE_DOUBLE,
-    SHINE_MODE_SINGLE,
-};
-
-#define SHINE_SPEED  4
-
-#define sMode     data[0]
-#define sBgColor  data[1]
-
-static void SpriteCB_PokemonLogoShine(struct Sprite *sprite)
-{
-    if (sprite->x < DISPLAY_WIDTH + 32)
-    {
-        // In any mode except SHINE_MODE_SINGLE_NO_BG_COLOR the background
-        // color will change, in addition to the shine sprite moving.
-        if (sprite->sMode != SHINE_MODE_SINGLE_NO_BG_COLOR)
-        {
-            u16 backgroundColor;
-
-            if (sprite->x < DISPLAY_WIDTH / 2)
-            {
-                // Brighten background color
-                if (sprite->sBgColor < 31)
-                    sprite->sBgColor++;
-                if (sprite->sBgColor < 31)
-                    sprite->sBgColor++;
-            }
-            else
-            {
-                // Darken background color
-                if (sprite->sBgColor != 0)
-                    sprite->sBgColor--;
-                if (sprite->sBgColor != 0)
-                    sprite->sBgColor--;
-            }
-
-            backgroundColor = _RGB(sprite->sBgColor, sprite->sBgColor, sprite->sBgColor);
-
-            // Flash the background green for 4 frames of movement.
-            // Otherwise use the updating color.
-            if (sprite->x == DISPLAY_WIDTH / 2 + (3 * SHINE_SPEED)
-             || sprite->x == DISPLAY_WIDTH / 2 + (4 * SHINE_SPEED)
-             || sprite->x == DISPLAY_WIDTH / 2 + (5 * SHINE_SPEED)
-             || sprite->x == DISPLAY_WIDTH / 2 + (6 * SHINE_SPEED))
-                gPlttBufferFaded[0] = RGB(24, 31, 12);
-            else
-                gPlttBufferFaded[0] = backgroundColor;
-        }
-
-        sprite->x += SHINE_SPEED;
-    }
-    else
-    {
-        // Sprite has moved fully offscreen
-        gPlttBufferFaded[0] = RGB_BLACK;
-        DestroySprite(sprite);
-    }
-}
-
-static void SpriteCB_PokemonLogoShine_Fast(struct Sprite *sprite)
-{
-    if (sprite->x < DISPLAY_WIDTH + 32)
-        sprite->x += SHINE_SPEED * 2;
-    else
-        DestroySprite(sprite);
-}
-
-static void StartPokemonLogoShine(u8 mode)
-{
-    u8 spriteId;
-
-    switch (mode)
-    {
-    case SHINE_MODE_SINGLE_NO_BG_COLOR:
-    case SHINE_MODE_SINGLE:
-        // Create one regular shine sprite.
-        // If mode is SHINE_MODE_SINGLE it will also change the background color.
-        spriteId = CreateSprite(&sPokemonLogoShineSpriteTemplate, 0, 68, 0);
-        gSprites[spriteId].oam.objMode = ST_OAM_OBJ_WINDOW;
-        gSprites[spriteId].sMode = mode;
-        break;
-    case SHINE_MODE_DOUBLE:
-        // Create an invisible sprite with mode set to update the background color
-        spriteId = CreateSprite(&sPokemonLogoShineSpriteTemplate, 0, 68, 0);
-        gSprites[spriteId].oam.objMode = ST_OAM_OBJ_WINDOW;
-        gSprites[spriteId].sMode = mode;
-        gSprites[spriteId].invisible = TRUE;
-
-        // Create two faster shine sprites
-        spriteId = CreateSprite(&sPokemonLogoShineSpriteTemplate, 0, 68, 0);
-        gSprites[spriteId].callback = SpriteCB_PokemonLogoShine_Fast;
-        gSprites[spriteId].oam.objMode = ST_OAM_OBJ_WINDOW;
-
-        spriteId = CreateSprite(&sPokemonLogoShineSpriteTemplate, -80, 68, 0);
-        gSprites[spriteId].callback = SpriteCB_PokemonLogoShine_Fast;
-        gSprites[spriteId].oam.objMode = ST_OAM_OBJ_WINDOW;
-        break;
-    }
-}
-
-#undef sMode
-#undef sBgColor
-
 static void VBlankCB(void)
 {
     LoadOam();
@@ -605,9 +449,9 @@ void CB2_InitTitleScreen(void)
         ResetSpriteData();
         FreeAllSpritePalettes();
         gReservedSpritePaletteCount = 9;
-        LoadCompressedSpriteSheet(&sSpriteSheet_EmeraldVersion[0]);
+        //LoadCompressedSpriteSheet(&sSpriteSheet_EmeraldVersion[0]);
         LoadCompressedSpriteSheet(&sSpriteSheet_PressStart[0]);
-        LoadCompressedSpriteSheet(&sPokemonLogoShineSpriteSheet[0]);
+        //LoadCompressedSpriteSheet(&sPokemonLogoShineSpriteSheet[0]);
         LoadPalette(gTitleScreenEmeraldVersionPal, OBJ_PLTT_ID(0), PLTT_SIZE_4BPP);
         LoadSpritePalette(&sSpritePalette_PressStart[0]);
         //
